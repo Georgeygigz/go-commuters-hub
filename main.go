@@ -29,7 +29,7 @@ func main() {
 	// us.DestructiveReset()
 	// us.AutoMigrate()
 	// us.SeedUserData()
-	user, err := us.InAgeRange(0, 13)
+	user, err := us.ByID(1)
 	// user, err := us.ByID(1)
 	if err != nil {
 		panic(err)

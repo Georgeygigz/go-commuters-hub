@@ -31,7 +31,6 @@ type User struct {
 	gorm.Model
 	Name  string
 	Email string `gorm:"not null;uniqueIndex"`
-	Age   int
 }
 
 func (us *UserService) Create(user *User) error {
@@ -69,29 +68,6 @@ func (us *UserService) Delete(id uint) error {
 	}
 	user := User{Model: gorm.Model{ID: id}}
 	return us.db.Delete(&user).Error
-}
-
-func (us *UserService) ByAge(age int) (*User, error) {
-	var user User
-	if age == 0 {
-		return nil, errors.New("invalid age")
-	}
-	db := us.db.Where("age = ?", age)
-	err := first(db, &user)
-	if err != nil {
-		return nil, err
-	}
-	return &user, err
-
-}
-
-func (us *UserService) InAgeRange(min, max int) ([]User, error) {
-	var users []User
-	us.db.Where("age BETWEEN ? AND ?", min, max).Find(&users)
-	if len(users) == 1 {
-		return nil, errors.New("must be more than 1")
-	}
-	return users, nil
 }
 
 func (us *UserService) DestructiveReset() error {
