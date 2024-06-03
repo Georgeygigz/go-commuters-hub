@@ -3,13 +3,16 @@ package models
 import (
 	"errors"
 
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 var (
-	ErrNotFound  = errors.New("models: resource not found")
-	ErrInvalidID = errors.New("models: ID provided was invalid")
+	ErrNotFound        = errors.New("models: resource not found")
+	ErrInvalidID       = errors.New("models: ID provided was invalid")
+	ErrInvalidPassword = errors.New("models: incorrect password provided")
+	userPwPepper       = "secret-random-string"
 )
 
 func NewUserService(connectionInfo string) (*UserService, error) {
@@ -29,11 +32,38 @@ type UserService struct {
 
 type User struct {
 	gorm.Model
-	Name  string
-	Email string `gorm:"not null;uniqueIndex"`
+	Name         string
+	Email        string `gorm:"not null;uniqueIndex"`
+	Password     string `gorm:"_"`
+	PasswordHash string `gorm:"not null"`
+}
+
+func (us *UserService) Authenticate(email, password string) (*User, error) {
+	pwBytes := []byte(password + userPwPepper)
+	foundUser, err := us.ByEmail(email)
+	if err != nil {
+		return nil, err
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(foundUser.PasswordHash), pwBytes)
+	switch err {
+	case nil:
+		return foundUser, nil
+	case bcrypt.ErrMismatchedHashAndPassword:
+		return nil, ErrInvalidPassword
+	default:
+		return nil, err
+	}
+
 }
 
 func (us *UserService) Create(user *User) error {
+	pwBytes := []byte(user.Password + userPwPepper)
+	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(pwBytes), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	user.PasswordHash = string(hashedBytes)
+	user.Password = ""
 	return us.db.Create(user).Error
 }
 
@@ -97,12 +127,12 @@ func first(db *gorm.DB, dst interface{}) error {
 
 func (us *UserService) SeedUserData() {
 	users := []*User{
-		{Name: "gg", Email: "gg@gg.com"},
-		{Name: "mary", Email: "mm@mm.com"},
-		{Name: "jane", Email: "jj@jj.com"},
-		{Name: "nick", Email: "n@n.com"},
-		{Name: "henry", Email: "hh@hh.com"},
-		{Name: "bush", Email: "bb@bb.com"},
+		{Name: "gg", Email: "gg@gg.com", PasswordHash: "hash-1"},
+		{Name: "mary", Email: "mm@mm.com", PasswordHash: "hash-2"},
+		{Name: "jane", Email: "jj@jj.com", PasswordHash: "hash-3"},
+		{Name: "nick", Email: "n@n.com", PasswordHash: "hash-4"},
+		{Name: "henry", Email: "hh@hh.com", PasswordHash: "hash-5"},
+		{Name: "bush", Email: "bb@bb.com", PasswordHash: "hash-6"},
 	}
 	for _, user := range users {
 		if err := us.db.Create(user).Error; err != nil {
